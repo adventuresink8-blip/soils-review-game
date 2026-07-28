@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wiggly's Soil Dig! 🪱 A Grade 3 Soils Review Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky:#BEE3F2;
+    --sky-deep:#8FCBE6;
+    --grass:#7FB24C;
+    --grass-dark:#5C8F35;
+    --humus:#4A3223;
+    --topsoil:#6E4A30;
+    --subsoil:#9C7A54;
+    --parent:#B7A98A;
+    --bedrock:#7C7A72;
+    --sun:#FFC857;
+    --cream:#FBF3E3;
+    --ink:#2E2418;
+    --correct:#5C8F35;
+    --wrong:#C4573B;
+    --card:#FFFCF5;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    font-family:'Quicksand',sans-serif;
+    color:var(--ink);
+    overflow-x:hidden;
+  }
+  body{
+    min-height:100vh;
+    position:relative;
+    background:linear-gradient(var(--sky), var(--sky-deep) 60%);
+  }
+
+  /* Layered soil background running full page, fixed */
+  .soil-bg{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .layer{ width:100%; position:relative; }
+  .layer.sky{ flex:1.4; background:linear-gradient(var(--sky), var(--sky-deep)); }
+  .layer.grass{ flex:0.25; background:var(--grass);
+    border-bottom:4px solid var(--grass-dark);
+  }
+  .layer.humus{ flex:0.55; background:var(--humus); }
+  .layer.topsoil{ flex:0.9; background:var(--topsoil); }
+  .layer.subsoil{ flex:0.9; background:var(--subsoil); }
+  .layer.parent{ flex:0.9; background:var(--parent);
+    background-image:radial-gradient(circle, rgba(70,55,35,.35) 8%, transparent 9%),
+                      radial-gradient(circle, rgba(70,55,35,.3) 6%, transparent 7%);
+    background-size:38px 38px, 26px 26px;
+    background-position:0 0, 15px 20px;
+  }
+  .layer.bedrock{ flex:1; background:var(--bedrock);
+    background-image:radial-gradient(circle, rgba(50,48,44,.5) 12%, transparent 13%),
+                      radial-gradient(circle, rgba(50,48,44,.4) 9%, transparent 10%);
+    background-size:60px 60px, 40px 40px;
+  }
+  .sun{
+    position:absolute; top:18px; right:6%;
+    width:70px;height:70px;border-radius:50%;
+    background:var(--sun);
+    box-shadow:0 0 0 8px rgba(255,200,87,.35), 0 0 0 16px rgba(255,200,87,.18);
+  }
+  .cloud{
+    position:absolute; background:#fff; border-radius:50px;
+    opacity:.85;
+  }
+  .cloud::before,.cloud::after{content:"";position:absolute;background:#fff;border-radius:50%;}
+  .c1{ width:80px;height:32px; top:60px; left:8%; }
+  .c1::before{ width:44px;height:44px; top:-20px; left:10px; }
+  .c1::after{ width:34px;height:34px; top:-14px; left:44px; }
+  .c2{ width:60px;height:24px; top:110px; left:60%; }
+  .c2::before{ width:34px;height:34px; top:-16px; left:8px; }
+  .c2::after{ width:26px;height:26px; top:-10px; left:32px; }
+
+  /* Worm track along the right side showing progress through the layers */
+  .worm-track{
+    position:fixed;
+    right:14px; top:6%; bottom:6%;
+    width:46px;
+    z-index:5;
+    pointer-events:none;
+  }
+  .worm-rail{
+    position:absolute; left:50%; top:0; bottom:0;
+    width:6px; margin-left:-3px;
+    background:rgba(255,255,255,.35);
+    border-radius:4px;
+  }
+  .worm{
+    position:absolute; left:50%; transform:translate(-50%, 0);
+    font-size:34px; line-height:1;
+    transition: top .6s cubic-bezier(.34,1.56,.64,1);
+    filter:drop-shadow(0 3px 2px rgba(0,0,0,.25));
+  }
+
+  .wrap{
+    position:relative; z-index:2;
+    min-height:100vh;
+    display:flex; flex-direction:column;
+    align-items:center;
+    padding:28px 16px 60px;
+  }
+
+  h1.title{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:800;
+    font-size:clamp(28px,5.5vw,46px);
+    color:#fff;
+    text-shadow: 0 3px 0 rgba(0,0,0,.18);
+    margin:6px 0 0;
+    text-align:center;
+  }
+  .subtitle{
+    font-weight:700;
+    color:#fff;
+    background:rgba(0,0,0,.12);
+    padding:4px 16px;
+    border-radius:999px;
+    margin-bottom:18px;
+    font-size:14px;
+    letter-spacing:.03em;
+  }
+
+  .card{
+    background:var(--card);
+    border-radius:26px;
+    box-shadow:0 14px 0 rgba(0,0,0,.12), 0 18px 30px rgba(0,0,0,.18);
+    border:5px solid var(--topsoil);
+    width:min(640px,92vw);
+    padding:28px 26px 26px;
+    position:relative;
+    animation: pop-in .35s ease;
+  }
+  @keyframes pop-in{
+    from{ transform:scale(.9) translateY(10px); opacity:0; }
+    to{ transform:scale(1) translateY(0); opacity:1; }
+  }
+
+  /* START SCREEN */
+  .start-emoji{ font-size:64px; text-align:center; }
+  .start-copy{
+    text-align:center;
+    font-size:17px;
+    line-height:1.5;
+    font-weight:600;
+    margin:10px 0 22px;
+  }
+  .start-copy b{ color:var(--topsoil); }
+
+  /* Buttons */
+  .btn{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    font-size:18px;
+    border:none;
+    border-radius:16px;
+    padding:14px 20px;
+    cursor:pointer;
+    color:#fff;
+    background:var(--grass-dark);
+    box-shadow:0 5px 0 #3f6423;
+    transition:transform .08s ease, box-shadow .08s ease;
+    display:block;
+    width:100%;
+  }
+  .btn:hover{ filter:brightness(1.05); }
+  .btn:active{ transform:translateY(4px); box-shadow:0 1px 0 #3f6423; }
+
+  .btn.secondary{
+    background:var(--sun);
+    box-shadow:0 5px 0 #c99a2e;
+    color:#4a3223;
+  }
+  .btn.secondary:active{ box-shadow:0 1px 0 #c99a2e; }
+
+  /* QUIZ HEADER */
+  .quiz-top{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:14px; gap:10px; flex-wrap:wrap;
+  }
+  .qcount{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    color:var(--topsoil);
+    background:#EDE1CB;
+    border-radius:999px;
+    padding:6px 14px;
+    font-size:14px;
+  }
+  .score-badge{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    background:var(--grass);
+    color:#fff;
+    border-radius:999px;
+    padding:6px 14px;
+    font-size:14px;
+  }
+  .progress-bar{
+    height:14px; background:#E6DAC2; border-radius:999px;
+    overflow:hidden; margin-bottom:20px;
+    border:2px solid #d8c8a6;
+  }
+  .progress-fill{
+    height:100%; background:linear-gradient(90deg, var(--grass), var(--grass-dark));
+    border-radius:999px;
+    transition:width .5s ease;
+  }
+
+  .question{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    font-size:clamp(19px,3vw,24px);
+    color:var(--ink);
+    margin:4px 0 20px;
+    line-height:1.3;
+  }
+  .options{
+    display:grid; gap:12px;
+  }
+  .opt{
+    font-family:'Quicksand',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    text-align:left;
+    padding:14px 16px;
+    border-radius:14px;
+    border:3px solid #E0D3B8;
+    background:#fff;
+    cursor:pointer;
+    transition:all .15s ease;
+    display:flex; align-items:center; gap:10px;
+  }
+  .opt .letter{
+    flex:0 0 auto;
+    width:28px;height:28px;border-radius:50%;
+    background:#EDE1CB;
+    color:var(--topsoil);
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+  }
+  .opt:hover{ border-color:var(--grass); background:#F3FBEC; }
+  .opt.correct{
+    background:#E4F2D9; border-color:var(--correct); color:var(--correct);
+  }
+  .opt.wrong{
+    background:#FBE4DD; border-color:var(--wrong); color:var(--wrong);
+  }
+  .opt:disabled{ cursor:default; }
+
+  .feedback{
+    margin-top:16px;
+    font-weight:700;
+    font-size:16px;
+    min-height:26px;
+    text-align:center;
+  }
+  .feedback.correct-txt{ color:var(--correct); }
+  .feedback.wrong-txt{ color:var(--wrong); }
+
+  .next-wrap{ margin-top:16px; }
+
+  /* RESULTS */
+  .result-emoji{ font-size:70px; text-align:center; }
+  .result-title{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:800;
+    font-size:26px;
+    text-align:center;
+    color:var(--topsoil);
+    margin:6px 0 4px;
+  }
+  .result-score{
+    text-align:center;
+    font-weight:700;
+    font-size:18px;
+    margin-bottom:10px;
+  }
+  .result-msg{
+    text-align:center;
+    font-weight:600;
+    line-height:1.5;
+    margin-bottom:20px;
+  }
+  .badge-row{ display:flex; justify-content:center; gap:8px; margin-bottom:20px; flex-wrap:wrap;}
+  .badge{
+    background:#EDE1CB; color:var(--topsoil); font-weight:700;
+    border-radius:999px; padding:6px 14px; font-size:13px;
+  }
+
+  .hidden{ display:none !important; }
+
+  footer.credit{
+    position:relative; z-index:2;
+    color:#fff; font-size:12px; opacity:.85; text-align:center; margin-top:10px;
+  }
+
+  @media (max-width:520px){
+    .worm-track{ width:34px; right:6px; }
+    .worm{ font-size:26px; }
+    .card{ padding:22px 16px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="soil-bg" aria-hidden="true">
+  <div class="layer sky">
+    <div class="sun"></div>
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+  </div>
+  <div class="layer grass"></div>
+  <div class="layer humus"></div>
+  <div class="layer topsoil"></div>
+  <div class="layer subsoil"></div>
+  <div class="layer parent"></div>
+  <div class="layer bedrock"></div>
+</div>
+
+<div class="worm-track" aria-hidden="true">
+  <div class="worm-rail"></div>
+  <div class="worm" id="worm" style="top:96%;">🪱</div>
+</div>
+
+<div class="wrap">
+  <h1 class="title">Wiggly's Soil Dig!</h1>
+  <div class="subtitle">A Grade 3 Soils in the Environment Review Game 🌱</div>
+
+  <!-- START SCREEN -->
+  <div class="card" id="startScreen">
+    <div class="start-emoji">🐛🌎🌱</div>
+    <div class="start-copy">
+      Hi! I'm <b>Wiggly the Worm</b>, and I need your help digging up
+      to the surface! Answer soil questions correctly to help me
+      climb through the <b>bedrock</b>, <b>parent material</b>,
+      <b>subsoil</b>, <b>topsoil</b>, and <b>humus</b> — all the way
+      up to the sunshine! ☀️
+    </div>
+    <button class="btn" id="startBtn">Let's Dig In! 🔍</button>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div class="card hidden" id="quizScreen">
+    <div class="quiz-top">
+      <div class="qcount" id="qCount">Question 1 / 30</div>
+      <div class="score-badge" id="scoreBadge">⭐ Score: 0</div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
+    <div class="question" id="questionText"></div>
+    <div class="options" id="optionsWrap"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="next-wrap">
+      <button class="btn hidden" id="nextBtn">Next Question ➡️</button>
+    </div>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div class="card hidden" id="resultsScreen">
+    <div class="result-emoji" id="resultEmoji">🏆</div>
+    <div class="result-title" id="resultTitle">Amazing Digging!</div>
+    <div class="result-score" id="resultScore"></div>
+    <div class="result-msg" id="resultMsg"></div>
+    <div class="badge-row" id="badgeRow"></div>
+    <button class="btn" id="retryBtn">Dig Again! 🔁</button>
+  </div>
+
+  <footer class="credit">Soils in the Environment • Grade 3 Science Review Game</footer>
+</div>
+
+<script>
+const QUESTIONS = [
+  {q:"What is soil mostly made of?", opts:["Plastic and metal","Rock pieces, humus, water, and air","Only water","Clouds"], a:1},
+  {q:"How many main types of soil are there?", opts:["1","4","10","Lots"], a:1},
+  {q:"Which type of soil has the LARGEST particles?", opts:["Clay","Silt","Sand","Topsoil"], a:2},
+  {q:"Which soil type holds the MOST water?", opts:["Sand","Clay","Silt","Topsoil"], a:1},
+  {q:"Which soil is the BEST for growing most plants?", opts:["Sand","Clay","Silt","Topsoil"], a:3},
+  {q:"What is humus?", opts:["Solid rock","Decaying organic material","Water","Sand"], a:1},
+  {q:"Which layer of soil is on the very TOP?", opts:["Bedrock","Humus","Subsoil","Parent Material"], a:1},
+  {q:"Which layer of soil is a solid layer of rock?", opts:["Humus","Topsoil","Bedrock","Subsoil"], a:2},
+  {q:"Where do plant roots live the most?", opts:["Bedrock","Topsoil","Humus","The sky"], a:1},
+  {q:"What is 'anchorage' in a plant's roots?", opts:["Making noise","Holding the plant in place & absorbing water/nutrients","Photosynthesis","Growing flowers"], a:1},
+  {q:"What kind of root grows ONE long root deep down?", opts:["Fibrous root","Tap root","Leaf root","Flower root"], a:1},
+  {q:"Which plant has FIBROUS roots?", opts:["Carrot","Grass","Dandelion","Turnip"], a:1},
+  {q:"Which plant has a TAP root?", opts:["Corn","Wheat","Carrot","Grass"], a:2},
+  {q:"What do earthworms mostly eat?", opts:["Rocks","Dead or decaying organic matter","Plastic","Metal"], a:1},
+  {q:"What are worm castings?", opts:["Worm eggs","Worm waste - a valuable fertilizer","Worm skin","Worm food"], a:1},
+  {q:"Why do worms come out when it rains?", opts:["They like swimming","They breathe through their skin & need to stay moist","To hide from birds","They never come out in rain"], a:1},
+  {q:"What is erosion?", opts:["Soil growing bigger","Rocks & soil being washed away or broken down by water","Plants dying","Rain falling"], a:1},
+  {q:"Which soil layer washes away the EASIEST during erosion?", opts:["Bedrock","Topsoil","Parent material","Subsoil"], a:1},
+  {q:"Name a way to help PREVENT erosion.", opts:["Cutting down all the trees","Planting trees & grass to hold soil with their roots","Adding more loose rocks","Removing all the soil"], a:1},
+  {q:"What is a decomposer?", opts:["A living thing that breaks down organic matter","A type of machine","A kind of rock","A type of plant"], a:0},
+  {q:"Which of these is a decomposer?", opts:["A car","Bacteria, fungi, or worms","A rock","Plastic"], a:1},
+  {q:"What is composting?", opts:["Throwing trash in the ocean","Turning food scraps & plant material into rich soil","Only watering plants","Only planting seeds"], a:1},
+  {q:"Why is composting good for the environment?", opts:["It creates more landfill waste","It reduces waste in landfills & lowers harmful gases","It makes more plastic","It kills plants"], a:1},
+  {q:"Name a way humans use soil that is NOT for planting.", opts:["Building bricks & homes","Nothing else","Only for food","Making cars"], a:0},
+  {q:"How is soil used in medicine?", opts:["It isn't used in medicine","Clay heals wounds & soil bacteria can make antibiotics","Only for painting","To make plastic"], a:1},
+  {q:"What are fertilizers?", opts:["Chemicals that always hurt soil","Substances added to soil to help plants grow healthier","Only rocks","Just water"], a:1},
+  {q:"What are pesticides used for?", opts:["To help plants grow taller","To kill pests that damage crops","To water crops","To add colour to soil"], a:1},
+  {q:"Why should you always wash fruits & vegetables?", opts:["They taste better that way","Pesticides can remain on the crops","There's no real reason","To make them shiny"], a:1},
+  {q:"Which of these is a NATURAL fertilizer?", opts:["Compost","A plastic bottle","A metal can","A rock"], a:0},
+  {q:"Plants need 4 things from soil to survive. Which list is correct?", opts:["Sun, moon, stars, wind","Water, oxygen, nutrients, anchorage","Sugar, salt, pepper, spice","Rocks only"], a:1},
+  {q:"What would likely happen if there was NO soil?", opts:["Nothing would change at all","Plants couldn't grow & living things would struggle to survive","There would be more buildings","The ocean would dry up"], a:1},
+  {q:"Which soil type has a gritty texture and grows few plants?", opts:["Sand","Silt","Clay","Topsoil"], a:0},
+  {q:"True or False: It takes millions of years to make soil.", opts:["True","False"], a:0}
+];
+
+// Shuffle questions once per load for replay variety
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+let quiz = [];
+let current = 0;
+let score = 0;
+let answered = false;
+
+const startScreen = document.getElementById('startScreen');
+const quizScreen = document.getElementById('quizScreen');
+const resultsScreen = document.getElementById('resultsScreen');
+const qCount = document.getElementById('qCount');
+const scoreBadge = document.getElementById('scoreBadge');
+const progressFill = document.getElementById('progressFill');
+const questionText = document.getElementById('questionText');
+const optionsWrap = document.getElementById('optionsWrap');
+const feedback = document.getElementById('feedback');
+const nextBtn = document.getElementById('nextBtn');
+const worm = document.getElementById('worm');
+
+const letters = ['A','B','C','D'];
+
+function startQuiz(){
+  quiz = shuffle(QUESTIONS);
+  current = 0;
+  score = 0;
+  startScreen.classList.add('hidden');
+  resultsScreen.classList.add('hidden');
+  quizScreen.classList.remove('hidden');
+  moveWorm(0);
+  renderQuestion();
+}
+
+function moveWorm(fraction){
+  // fraction 0 = bottom (bedrock), 1 = top (sunshine)
+  const topPct = 94 - (fraction*88); // stays within track
+  worm.style.top = topPct + '%';
+}
+
+function renderQuestion(){
+  answered = false;
+  feedback.textContent = '';
+  feedback.className = 'feedback';
+  nextBtn.classList.add('hidden');
+
+  const item = quiz[current];
+  qCount.textContent = `Question ${current+1} / ${quiz.length}`;
+  scoreBadge.textContent = `⭐ Score: ${score}`;
+  progressFill.style.width = ((current)/quiz.length*100) + '%';
+  moveWorm(current/quiz.length);
+
+  questionText.textContent = item.q;
+  optionsWrap.innerHTML = '';
+
+  item.opts.forEach((opt, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'opt';
+    btn.innerHTML = `<span class="letter">${letters[idx]}</span><span>${opt}</span>`;
+    btn.addEventListener('click', () => selectAnswer(idx, btn));
+    optionsWrap.appendChild(btn);
+  });
+}
+
+function selectAnswer(idx, btnEl){
+  if(answered) return;
+  answered = true;
+  const item = quiz[current];
+  const allBtns = optionsWrap.querySelectorAll('.opt');
+  allBtns.forEach(b => b.disabled = true);
+
+  if(idx === item.a){
+    btnEl.classList.add('correct');
+    score++;
+    feedback.textContent = "🎉 Great digging! That's correct!";
+    feedback.classList.add('correct-txt');
+    worm.textContent = '🪱';
+  } else {
+    btnEl.classList.add('wrong');
+    allBtns[item.a].classList.add('correct');
+    feedback.textContent = "🌱 Not quite — here's the right answer!";
+    feedback.classList.add('wrong-txt');
+  }
+
+  scoreBadge.textContent = `⭐ Score: ${score}`;
+  progressFill.style.width = ((current+1)/quiz.length*100) + '%';
+  moveWorm((current+1)/quiz.length);
+  nextBtn.classList.remove('hidden');
+}
+
+nextBtn.addEventListener('click', () => {
+  current++;
+  if(current >= quiz.length){
+    showResults();
+  } else {
+    renderQuestion();
+  }
+});
+
+function showResults(){
+  quizScreen.classList.add('hidden');
+  resultsScreen.classList.remove('hidden');
+  moveWorm(1);
+
+  const pct = Math.round((score/quiz.length)*100);
+  document.getElementById('resultScore').textContent = `You scored ${score} out of ${quiz.length} (${pct}%)`;
+
+  let emoji, title, msg, badges;
+  if(pct >= 90){
+    emoji = '🌞🪱🏆';
+    title = 'Wow — Super Soil Scientist!';
+    msg = "You helped Wiggly reach the sunshine with flying colours! You really know your humus from your bedrock!";
+    badges = ['Soil Expert','Worm Whisperer','Erosion Ace'];
+  } else if(pct >= 70){
+    emoji = '🌱🪱';
+    title = 'Great Digging!';
+    msg = "Wiggly made it almost all the way up! You know a whole lot about soil, layers, and living things.";
+    badges = ['Compost Champ','Root Rockstar'];
+  } else if(pct >= 50){
+    emoji = '🪱🌾';
+    title = 'Nice Try, Digger!';
+    msg = "Wiggly is halfway up the layers! A little more review of the soil unit and you'll be a soil superstar.";
+    badges = ['Budding Botanist'];
+  } else {
+    emoji = '🪱🪨';
+    title = "Let's Dig Again!";
+    msg = "Wiggly is still down in the bedrock! Review your soil notes and try again — you've got this!";
+    badges = ['Rising Digger'];
+  }
+
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultMsg').textContent = msg;
+
+  const badgeRow = document.getElementById('badgeRow');
+  badgeRow.innerHTML = '';
+  badges.forEach(b => {
+    const span = document.createElement('span');
+    span.className = 'badge';
+    span.textContent = '🏅 ' + b;
+    badgeRow.appendChild(span);
+  });
+}
+
+document.getElementById('startBtn').addEventListener('click', startQuiz);
+document.getElementById('retryBtn').addEventListener('click', startQuiz);
+</script>
+</body>
+</html>
